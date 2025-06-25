@@ -58,6 +58,7 @@ class TetrisGame:
         self.drop_timer = 0
         self.drop_speed = 500
         self.last_time = pygame.time.get_ticks()
+        self.game_over_flag = False
 
     def new_tetromino(self):
         return Tetromino(random.choice(list(SHAPES.keys())))
@@ -74,12 +75,12 @@ class TetrisGame:
 
     def lock_tetromino(self):
         for x, y in self.current.get_coords():
-            if y < 0:
-                self.game_over()
-                return
-            self.board[y][x] = self.current.color
+            if y >= 0:
+                self.board[y][x] = self.current.color
         self.clear_lines()
         self.current = self.new_tetromino()
+        if not self.valid_position(self.current):
+            self.game_over()
 
     def clear_lines(self):
         new_board = [row for row in self.board if any(cell is None for cell in row)]
@@ -89,9 +90,7 @@ class TetrisGame:
         self.board = new_board
 
     def game_over(self):
-        print("Game Over")
-        pygame.quit()
-        exit()
+        self.game_over_flag = True
 
     def hard_drop(self):
         while self.valid_position(self.current, dy=1):
@@ -99,6 +98,8 @@ class TetrisGame:
         self.lock_tetromino()
 
     def update(self):
+        if self.game_over_flag:
+            return
         now = pygame.time.get_ticks()
         if now - self.last_time > self.drop_speed:
             if self.valid_position(self.current, dy=1):
@@ -125,8 +126,14 @@ class TetrisGame:
                     pygame.draw.rect(screen, self.board[y][x],
                                      (x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
         for x, y in self.current.get_coords():
-            pygame.draw.rect(screen, self.current.color,
-                             (x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+            if y >= 0:
+                pygame.draw.rect(screen, self.current.color,
+                                 (x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+        if self.game_over_flag:
+            font = pygame.font.SysFont(None, 60)
+            text = font.render("GAME OVER", True, (255, 255, 255))
+            rect = text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
+            screen.blit(text, rect)
         pygame.display.flip()
 
 # --- メイン処理 ---
@@ -143,17 +150,18 @@ def main():
                 pygame.quit()
                 return
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    game.move(-1)
-                elif event.key == pygame.K_RIGHT:
-                    game.move(1)
-                elif event.key == pygame.K_UP:
-                    game.rotate()
-                elif event.key == pygame.K_DOWN:
-                    if game.valid_position(game.current, dy=1):
-                        game.current.y += 1
-                elif event.key == pygame.K_SPACE:
-                    game.hard_drop()
+                if not game.game_over_flag:
+                    if event.key == pygame.K_LEFT:
+                        game.move(-1)
+                    elif event.key == pygame.K_RIGHT:
+                        game.move(1)
+                    elif event.key == pygame.K_UP:
+                        game.rotate()
+                    elif event.key == pygame.K_DOWN:
+                        if game.valid_position(game.current, dy=1):
+                            game.current.y += 1
+                    elif event.key == pygame.K_SPACE:
+                        game.hard_drop()
 
         game.update()
         game.draw(screen)
